@@ -6,9 +6,10 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "jest",
+    "test": "jest && npm run test:persistence",
     "synth": "cdk synth",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "test:persistence": "node --test test/persistence.test.cjs"
   },
   "devDependencies": {
     "@smithy/util-stream": "^3.0.6",

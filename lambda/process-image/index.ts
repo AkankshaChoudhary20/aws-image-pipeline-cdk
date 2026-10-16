@@ -142,6 +142,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
     return;
   }
 
+  let result: ResultRecord;
   try {
     const getObjectResponse = await s3Client.send(
       new GetObjectCommand({ Bucket: bucket, Key: key }),
@@ -156,24 +157,16 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       mediaType,
     );
 
-    await writeResult({
-      imageKey: key,
-      status: 'completed',
-      caption,
-      tags,
-      timestamp,
-    });
+    result = {imageKey: key, status: 'completed', caption, tags, timestamp};
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : String(error);
     console.error(`Failed to process "${key}": ${errorMessage}`);
-    await writeResult({
-      imageKey: key,
-      status: 'failed',
-      errorMessage,
-      timestamp,
-    });
+    result = {imageKey: key, status: 'failed', errorMessage, timestamp};
   }
+  // Persistence failures must reach Lambda so the source event can retry;
+  // a successful invocation must not silently discard an unrecorded image.
+  await writeResult(result);
 }
 
 export const handler: S3Handler = async (event) => {
@@ -189,5 +182,6 @@ export const handler: S3Handler = async (event) => {
     console.error(
       `${failures.length}/${results.length} records raised unexpected errors outside processRecord's own handling.`,
     );
+    throw new Error(`${failures.length} image record(s) could not be recorded`);
   }
 };
